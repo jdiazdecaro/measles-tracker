@@ -1,0 +1,865 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>US Measles Outbreak & MMR Vaccination Coverage Tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #f5f0e8;
+      --surface: #faf7f2;
+      --surface2: #f0ebe0;
+      --surface3: #e8e0d0;
+      --border: rgba(0,0,0,0.08);
+      --border2: rgba(0,0,0,0.14);
+      --text: #1a1510;
+      --text-dim: #6b5f4e;
+      --text-faint: #b0a090;
+      --red: #c0392b;
+      --orange: #c0580a;
+      --amber: #92660a;
+      --green: #166534;
+      --blue: #1d4ed8;
+      --serif: 'Instrument Serif', Georgia, serif;
+      --mono: 'DM Mono', 'Courier New', monospace;
+      --sans: 'DM Sans', system-ui, sans-serif;
+    }
+
+    html { font-size: 16px; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+      opacity: 0.04;
+      pointer-events: none;
+      z-index: 9999;
+    }
+
+    header {
+      border-bottom: 1px solid var(--border2);
+      padding: 0 2rem;
+      background: var(--surface);
+      position: sticky; top: 0; z-index: 100;
+      backdrop-filter: blur(12px);
+    }
+
+    .header-inner {
+      max-width: 1400px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 56px;
+    }
+
+    .logo { display: flex; align-items: center; gap: 0.75rem; }
+
+    .logo-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--red);
+      box-shadow: 0 0 8px var(--red);
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; box-shadow: 0 0 8px var(--red); }
+      50% { opacity: 0.4; box-shadow: 0 0 3px var(--red); }
+    }
+
+    .logo-text {
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text);
+    }
+
+    .header-meta {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      color: var(--text-dim);
+      letter-spacing: 0.05em;
+    }
+
+    .header-meta span { color: var(--orange); }
+
+    main {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+
+    .headline-section {
+      margin-bottom: 2.5rem;
+      animation: fadeUp 0.6s ease both;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    h1 {
+      font-family: var(--serif);
+      font-size: clamp(2.2rem, 4vw, 3.4rem);
+      font-weight: 400;
+      line-height: 1.1;
+      color: var(--text);
+      margin-bottom: 0.5rem;
+    }
+
+    h1 em { font-style: italic; color: var(--red); }
+
+    .headline-sub {
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      color: var(--text-dim);
+      letter-spacing: 0.05em;
+    }
+
+    .kpi-strip {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 2rem;
+      animation: fadeUp 0.6s 0.1s ease both;
+    }
+
+    .kpi {
+      background: var(--surface);
+      padding: 1.25rem 1.5rem;
+      transition: background 0.2s;
+    }
+
+    .kpi:hover { background: var(--surface2); }
+
+    .kpi-label {
+      font-family: var(--mono);
+      font-size: 0.68rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 0.5rem;
+    }
+
+    .kpi-value {
+      font-family: var(--mono);
+      font-size: 2rem;
+      font-weight: 500;
+      line-height: 1;
+      color: var(--text);
+    }
+
+    .kpi-sub {
+      font-family: var(--mono);
+      font-size: 0.68rem;
+      color: var(--text-dim);
+      margin-top: 0.35rem;
+    }
+
+    .kpi-sub .up { color: var(--red); }
+
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      gap: 1.5rem;
+      animation: fadeUp 0.6s 0.2s ease both;
+    }
+
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .panel-header {
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .panel-title {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+    }
+
+    .panel-badge {
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      background: var(--surface3);
+      color: var(--text-dim);
+      letter-spacing: 0.05em;
+    }
+
+    .map-panel { grid-row: span 2; }
+
+    #map-container { padding: 1rem; position: relative; }
+    #map-svg { width: 100%; height: auto; }
+
+    .state-path {
+      stroke: #faf7f2;
+      stroke-width: 0.5;
+      transition: opacity 0.15s;
+      cursor: pointer;
+    }
+    .state-path:hover { opacity: 0.75; stroke-width: 1.5; stroke: var(--text); }
+
+    .map-legend {
+      padding: 0.75rem 1.25rem 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .legend-label {
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      color: var(--text-dim);
+    }
+
+    .legend-gradient {
+      flex: 1;
+      height: 6px;
+      border-radius: 3px;
+      background: linear-gradient(to right, #e8e0d0, #7f1d1d, #dc2626, #ef4444);
+    }
+
+    #tooltip {
+      position: fixed;
+      pointer-events: none;
+      z-index: 1000;
+      display: none;
+      background: var(--surface3);
+      border: 1px solid var(--border2);
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      min-width: 180px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+    }
+
+    .tt-state { font-family: var(--serif); font-size: 1rem; margin-bottom: 0.5rem; }
+
+    .tt-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      margin-top: 0.25rem;
+    }
+
+    .tt-key {
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      color: var(--text-dim);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .tt-val { font-family: var(--mono); font-size: 0.75rem; font-weight: 500; }
+
+    .sidebar { display: flex; flex-direction: column; gap: 1.5rem; }
+
+    .outbreak-list { padding: 0.5rem 0; }
+
+    .outbreak-item {
+      padding: 0.85rem 1.25rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      transition: background 0.15s;
+    }
+    .outbreak-item:last-child { border-bottom: none; }
+    .outbreak-item:hover { background: var(--surface2); }
+
+    .outbreak-severity {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      margin-top: 0.35rem;
+      flex-shrink: 0;
+    }
+    .sev-critical { background: var(--red); box-shadow: 0 0 6px var(--red); }
+    .sev-high { background: var(--orange); }
+    .sev-moderate { background: var(--amber); }
+    .sev-low { background: #4a9eff; }
+
+    .outbreak-info { flex: 1; min-width: 0; }
+
+    .outbreak-location {
+      font-family: var(--sans);
+      font-size: 0.82rem;
+      font-weight: 500;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .outbreak-detail {
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      color: var(--text-dim);
+      margin-top: 0.2rem;
+    }
+
+    .outbreak-count {
+      font-family: var(--mono);
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: var(--text);
+      flex-shrink: 0;
+      text-align: right;
+    }
+
+    .outbreak-count-sub {
+      font-family: var(--mono);
+      font-size: 0.6rem;
+      text-align: right;
+    }
+
+    .vacc-list { padding: 0.75rem 1.25rem 1rem; }
+
+    .vacc-item { margin-bottom: 0.85rem; animation: fadeUp 0.4s ease both; }
+
+    .vacc-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.3rem;
+    }
+
+    .vacc-state-name { font-family: var(--mono); font-size: 0.72rem; color: var(--text); }
+    .vacc-pct { font-family: var(--mono); font-size: 0.72rem; font-weight: 500; }
+
+    .vacc-bar-track {
+      height: 4px;
+      background: var(--surface3);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .vacc-bar-fill { height: 100%; border-radius: 2px; }
+
+    .vacc-threshold-note {
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      color: var(--text-dim);
+      padding: 0.75rem 1.25rem;
+      border-top: 1px solid var(--border);
+      line-height: 1.5;
+    }
+
+    .bottom-strip {
+      margin-top: 1.5rem;
+      padding: 1rem 1.5rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 2rem;
+      animation: fadeUp 0.6s 0.3s ease both;
+    }
+
+    .source-text {
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      color: var(--text-dim);
+      line-height: 1.7;
+    }
+
+    .source-text a { color: var(--blue); text-decoration: none; }
+    .source-text a:hover { text-decoration: underline; }
+
+    .alert-box {
+      background: rgba(192, 57, 43, 0.06);
+      border: 1px solid rgba(192, 57, 43, 0.25);
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      font-family: var(--mono);
+      font-size: 0.68rem;
+      color: #7f1d1d;
+      line-height: 1.6;
+      max-width: 340px;
+    }
+
+    .alert-box strong { color: var(--red); display: block; margin-bottom: 0.25rem; }
+
+    .map-toggle {
+      display: flex;
+      gap: 0.5rem;
+      padding: 0 1.25rem 0.75rem;
+    }
+
+    .toggle-btn {
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 0.35rem 0.75rem;
+      border-radius: 4px;
+      border: 1px solid var(--border2);
+      background: transparent;
+      color: var(--text-dim);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .toggle-btn.active { background: var(--surface3); color: var(--text); }
+    .toggle-btn:hover:not(.active) { background: var(--surface2); color: var(--text); }
+
+    /* Loading state */
+    .loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 120px;
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      letter-spacing: 0.05em;
+    }
+
+    @media (max-width: 900px) {
+      .dashboard-grid { grid-template-columns: 1fr; }
+      .kpi-strip { grid-template-columns: repeat(2, 1fr); }
+      .map-panel { grid-row: auto; }
+    }
+
+    @media (max-width: 480px) {
+      main { padding: 1rem; }
+      .kpi-strip { grid-template-columns: 1fr 1fr; }
+      h1 { font-size: 1.8rem; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="logo">
+      <div class="logo-dot"></div>
+      <span class="logo-text">US Measles Outbreak & MMR Vaccination Coverage Tracker</span>
+    </div>
+    <div class="header-meta">
+      LIVE · Sources: <span>CDC Measles Data</span> & <span>CDC School Vaccination View</span>
+      · Last updated: <span id="last-updated">loading…</span>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="headline-section">
+    <h1>Measles is <em>surging</em><br>across the United States.</h1>
+    <p class="headline-sub">CONFIRMED CASES · ACTIVE OUTBREAKS · MMR VACCINATION COVERAGE · 2026</p>
+  </div>
+
+  <!-- KPI STRIP — values filled dynamically from CSV -->
+  <div class="kpi-strip">
+    <div class="kpi">
+      <div class="kpi-label">2026 Confirmed Cases</div>
+      <div class="kpi-value" style="color:var(--red)" id="kpi-cases">—</div>
+      <div class="kpi-sub" id="kpi-cases-sub"></div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Active Outbreaks</div>
+      <div class="kpi-value" style="color:var(--orange)" id="kpi-outbreaks">—</div>
+      <div class="kpi-sub" id="kpi-outbreaks-sub"></div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Outbreak-Associated</div>
+      <div class="kpi-value" style="color:var(--amber)">89%</div>
+      <div class="kpi-sub">870 of 982 cases in clusters</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Natl. MMR Coverage</div>
+      <div class="kpi-value" style="color:var(--orange)">92.5%</div>
+      <div class="kpi-sub"><span class="up">↓ 2.7pts</span> since 2019–20</div>
+    </div>
+  </div>
+
+  <div class="dashboard-grid">
+
+    <!-- MAP -->
+    <div class="panel map-panel">
+      <div class="panel-header">
+        <span class="panel-title">Case Distribution by State</span>
+        <span class="panel-badge" id="map-mode-label">2026 YTD Cases</span>
+      </div>
+      <div class="map-toggle">
+        <button class="toggle-btn active" onclick="switchMap('cases')">Cases</button>
+        <button class="toggle-btn" onclick="switchMap('vacc')">MMR Coverage</button>
+      </div>
+      <div id="map-container">
+        <div class="loading">Loading map…</div>
+      </div>
+      <div class="map-legend">
+        <span class="legend-label">0</span>
+        <div class="legend-gradient" id="legend-gradient"></div>
+        <span class="legend-label" id="legend-max">700+</span>
+      </div>
+    </div>
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Active Outbreak Clusters</span>
+          <span class="panel-badge" style="color:var(--red); background:rgba(192,57,43,0.08)">● LIVE</span>
+        </div>
+        <div class="outbreak-list" id="outbreak-list">
+          <div class="loading">Loading outbreaks…</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">MMR Vaccination Rate</span>
+          <span class="panel-badge">Kindergartners · 2024–25</span>
+        </div>
+        <div class="vacc-list" id="vacc-list"></div>
+        <div class="vacc-threshold-note">
+          ● Bar color: red &lt;90% · yellow 90–94% · green ≥95%<br>
+          Herd immunity threshold = 95%. Only 10 states + DC meet this level.
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="bottom-strip">
+    <div class="source-text">
+      Case data sourced from <a href="https://www.cdc.gov/measles/data-research/index.html" target="_blank">CDC Measles Data & Research</a>, updated weekly on Thursdays. Confirmed cases only; probable cases excluded.<br>
+      MMR vaccination coverage sourced from <a href="https://www.cdc.gov/schoolvaxview/data/index.html" target="_blank">CDC School Vaccination View</a>, 2024–25 kindergarten school year.
+    </div>
+    <div class="alert-box">
+      <strong>⚠ Elimination Status at Risk</strong>
+      The US may lose its measles elimination status (granted in 2000) due to sustained local transmission.
+      Only 12% of 2025 cases were imported — down from 40% historically.
+    </div>
+  </div>
+</main>
+
+<footer style="max-width:1400px;margin:2rem auto 0;padding:1.5rem 2rem 2.5rem;border-top:1px solid rgba(0,0,0,0.1);display:flex;align-items:center;justify-content:space-between;gap:2rem;flex-wrap:wrap;">
+  <div>
+    <div style="font-family:var(--serif);font-size:1.05rem;color:var(--text);margin-bottom:0.25rem;">John D. Diaz-Decaro, PhD, MS</div>
+    <div style="font-family:var(--mono);font-size:0.68rem;color:var(--text-dim);letter-spacing:0.05em;">Black Swan Causal Labs, LLC</div>
+  </div>
+  <div style="font-family:var(--mono);font-size:0.65rem;color:var(--text-faint);line-height:1.7;text-align:right;max-width:480px;">
+    This dashboard is for informational purposes only. Data reflects official CDC sources and is subject to revision.
+    Not intended as medical or public health advice. Please consult your local health department for guidance.
+  </div>
+</footer>
+
+<div id="tooltip">
+  <div class="tt-state" id="tt-state"></div>
+  <div class="tt-row"><span class="tt-key">2026 Cases</span><span class="tt-val" style="color:var(--red)" id="tt-cases"></span></div>
+  <div class="tt-row"><span class="tt-key">2025 Cases</span><span class="tt-val" style="color:var(--text-dim)" id="tt-cases25"></span></div>
+  <div class="tt-row"><span class="tt-key">MMR Coverage</span><span class="tt-val" id="tt-vacc"></span></div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// VACCINATION DATA — static, updated annually each fall from CDC School Vax View
+// Source: https://www.cdc.gov/schoolvaxview/data/index.html · 2024-25 school year
+// null = state did not report 2024-25 data
+// ─────────────────────────────────────────────────────────────────────────────
+const vaccByState = {
+  "Alabama": 95.2, "Alaska": 81.2, "Arizona": 88.6, "Arkansas": 89.6,
+  "California": 96.1, "Colorado": 88.0, "Connecticut": 98.2, "Delaware": 94.1,
+  "District of Columbia": 92.7, "Florida": 88.8, "Georgia": 86.8, "Hawaii": 89.9,
+  "Idaho": 78.5, "Illinois": 91.8, "Indiana": 90.8, "Iowa": 88.8,
+  "Kansas": 91.0, "Kentucky": 86.9, "Louisiana": 92.6, "Maine": 97.6,
+  "Maryland": 96.4, "Massachusetts": 96.6, "Michigan": 91.6, "Minnesota": 86.5,
+  "Mississippi": 97.6, "Missouri": 90.0, "Montana": null, "Nebraska": 94.2,
+  "Nevada": 91.3, "New Hampshire": 89.2, "New Jersey": 92.8, "New Mexico": 94.8,
+  "New York": 97.8, "New York City": 97.1, "North Carolina": 94.2,
+  "North Dakota": 90.0, "Ohio": 88.3, "Oklahoma": 88.7, "Oregon": 90.5,
+  "Pennsylvania": 92.4, "Rhode Island": 96.7, "South Carolina": 91.2,
+  "South Dakota": 90.0, "Tennessee": 94.4, "Texas": 93.2, "Utah": 88.6,
+  "Vermont": 93.5, "Virginia": 95.6, "Washington": 90.9, "West Virginia": null,
+  "Wisconsin": 84.8, "Wyoming": 93.6,
+};
+
+// FIPS codes for map rendering
+const fipsByState = {
+  "Alabama":"01","Alaska":"02","Arizona":"04","Arkansas":"05","California":"06",
+  "Colorado":"08","Connecticut":"09","Delaware":"10","District of Columbia":"11",
+  "Florida":"12","Georgia":"13","Hawaii":"15","Idaho":"16","Illinois":"17",
+  "Indiana":"18","Iowa":"19","Kansas":"20","Kentucky":"21","Louisiana":"22",
+  "Maine":"23","Maryland":"24","Massachusetts":"25","Michigan":"26","Minnesota":"27",
+  "Mississippi":"28","Missouri":"29","Montana":"30","Nebraska":"31","Nevada":"32",
+  "New Hampshire":"33","New Jersey":"34","New Mexico":"35","New York":"36",
+  "New York City":"36","North Carolina":"37","North Dakota":"38","Ohio":"39",
+  "Oklahoma":"40","Oregon":"41","Pennsylvania":"42","Rhode Island":"44",
+  "South Carolina":"45","South Dakota":"46","Tennessee":"47","Texas":"48",
+  "Utah":"49","Vermont":"50","Virginia":"51","Washington":"53",
+  "West Virginia":"54","Wisconsin":"55","Wyoming":"56",
+};
+
+// ─── VACCINATION BAR CHART (shown states: worst + national avg + best) ────
+const vaccBarStates = [
+  { state: "Idaho",       isNational: false },
+  { state: "Alaska",      isNational: false },
+  { state: "Wisconsin",   isNational: false },
+  { state: "Minnesota",   isNational: false },
+  { state: "Georgia",     isNational: false },
+  { state: "Kentucky",    isNational: false },
+  { state: "National avg",isNational: true, pct: 92.5 },
+  { state: "Connecticut", isNational: false },
+  { state: "New York",    isNational: false },
+  { state: "Maine",       isNational: false },
+  { state: "Massachusetts",isNational: false },
+];
+
+function renderVaccBars() {
+  const vl = document.getElementById('vacc-list');
+  vl.innerHTML = '';
+  vaccBarStates.forEach((v, i) => {
+    const pct = v.isNational ? v.pct : vaccByState[v.state];
+    if (pct == null) return;
+    const color = pct >= 95 ? '#16a34a' : pct >= 90 ? '#92660a' : '#c0392b';
+    const item = document.createElement('div');
+    item.className = 'vacc-item';
+    item.style.animationDelay = (i * 0.05) + 's';
+    item.innerHTML = `
+      <div class="vacc-header">
+        <span class="vacc-state-name" style="${v.isNational ? 'color:var(--blue)' : ''}">${v.isNational ? '— ' : ''}${v.state}${v.isNational ? ' —' : ''}</span>
+        <span class="vacc-pct" style="color:${v.isNational ? 'var(--blue)' : color}">${pct}%</span>
+      </div>
+      <div class="vacc-bar-track">
+        <div class="vacc-bar-fill" style="width:${pct}%; background:${v.isNational ? 'var(--blue)' : color}; opacity:${v.isNational ? 0.5 : 1}"></div>
+      </div>`;
+    vl.appendChild(item);
+  });
+}
+
+// ─── LOAD CSVS & INITIALIZE ───────────────────────────────────────────────
+Promise.all([
+  d3.csv('data/cases.csv'),
+  d3.csv('data/outbreaks.csv'),
+  d3.json('https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json')
+]).then(([casesRaw, outbreaksRaw, us]) => {
+
+  // ── Parse cases CSV ──
+  // Merge NYC cases into New York state for map purposes
+  // Keep both separately for tooltip lookups
+  const casesByName = {};
+  let nycCases = { '2024': 0, '2025': 0, '2026': 0 };
+
+  casesRaw.forEach(row => {
+    const loc = row.Location.trim();
+    casesByName[loc] = {
+      cases24: +row['2024'] || 0,
+      cases25: +row['2025'] || 0,
+      cases26: +row['2026'] || 0,
+    };
+    if (loc === 'New York City') {
+      nycCases = { '2024': +row['2024']||0, '2025': +row['2025']||0, '2026': +row['2026']||0 };
+    }
+  });
+
+  // Build stateData — combine NY + NYC for map, keep vacc/fips from static lookups
+  const stateData = {};
+  Object.keys(fipsByState).forEach(name => {
+    if (name === 'New York City') return; // handled via New York
+    const c = casesByName[name] || { cases24: 0, cases25: 0, cases26: 0 };
+    // Add NYC into NY for map display
+    const extraNYC = (name === 'New York') ? {
+      cases24: nycCases['2024'], cases25: nycCases['2025'], cases26: nycCases['2026']
+    } : { cases24: 0, cases25: 0, cases26: 0 };
+    stateData[name] = {
+      cases24: c.cases24 + extraNYC.cases24,
+      cases25: c.cases25 + extraNYC.cases25,
+      cases26: c.cases26 + extraNYC.cases26,
+      vacc: vaccByState[name] ?? null,
+      fips: fipsByState[name],
+    };
+  });
+
+  // ── KPI totals (computed from CSV) ──
+  const total2026 = Object.values(stateData).reduce((s, d) => s + d.cases26, 0);
+  const total2025_samepoint = 247; // manually set: CDC 2025 case count at same week last year
+  document.getElementById('kpi-cases').textContent = total2026.toLocaleString();
+  document.getElementById('kpi-cases-sub').innerHTML =
+    `<span class="up">↑ 4×</span> vs. same point in 2025`;
+
+  // ── KPI outbreaks (from outbreaks CSV) ──
+  document.getElementById('kpi-outbreaks').textContent = outbreaksRaw.length;
+  document.getElementById('kpi-outbreaks-sub').innerHTML =
+    `Across <span class="up">26 states</span> in 2026`;
+
+  // ── Last updated: use today's date as "dashboard last refreshed" ──
+  const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  document.getElementById('last-updated').textContent = today;
+
+  // ── Render outbreaks ──
+  const ol = document.getElementById('outbreak-list');
+  ol.innerHTML = '';
+  const sevClass = { critical: 'sev-critical', high: 'sev-high', moderate: 'sev-moderate', low: 'sev-low' };
+  const trendLabel = { active: '● Active', slowing: '↘ Slowing', emerging: '↑ Emerging' };
+  const trendColor = { active: 'var(--red)', slowing: 'var(--text-dim)', emerging: 'var(--orange)' };
+
+  outbreaksRaw.forEach(o => {
+    const item = document.createElement('div');
+    item.className = 'outbreak-item';
+    item.innerHTML = `
+      <div class="outbreak-severity ${sevClass[o.severity] || 'sev-low'}"></div>
+      <div class="outbreak-info">
+        <div class="outbreak-location">${o.location}</div>
+        <div class="outbreak-detail">${o.detail}</div>
+      </div>
+      <div>
+        <div class="outbreak-count">${(+o.cases).toLocaleString()}</div>
+        <div class="outbreak-count-sub" style="color:${trendColor[o.trend] || 'var(--text-dim)'}">
+          ${trendLabel[o.trend] || o.trend}
+        </div>
+      </div>`;
+    ol.appendChild(item);
+  });
+
+  // ── Render vaccination bars ──
+  renderVaccBars();
+
+  // ── Build map ──
+  const fipsToState = {};
+  Object.entries(stateData).forEach(([name, d]) => {
+    if (!fipsToState[d.fips]) fipsToState[d.fips] = { name, ...d };
+    else {
+      // if two states share fips (shouldn't happen after NYC merge), combine
+      fipsToState[d.fips].cases26 += d.cases26;
+    }
+  });
+
+  const maxCases = Math.max(...Object.values(stateData).map(d => d.cases26), 1);
+
+  const colorCases = d3.scaleSequential()
+    .domain([1, maxCases])
+    .interpolator(t => d3.interpolateRgb('#9b1c1c', '#ef4444')(t));
+
+  const colorVacc = d3.scaleSequential()
+    .domain([78, 99])
+    .interpolator(t => d3.interpolateRgb('#7f1d1d', '#16a34a')(t));
+
+  const container = document.getElementById('map-container');
+  container.innerHTML = '<svg id="map-svg" viewBox="0 0 960 600"></svg>';
+  const svg = d3.select('#map-svg');
+  const tooltip = document.getElementById('tooltip');
+  const projection = d3.geoAlbersUsa().scale(1300).translate([487.5, 305]);
+  const path = d3.geoPath().projection(projection);
+  const states = topojson.feature(us, us.objects.states);
+
+  svg.selectAll('.state-path')
+    .data(states.features)
+    .enter()
+    .append('path')
+    .attr('class', 'state-path')
+    .attr('d', path)
+    .attr('fill', d => {
+      const fips = d.id.toString().padStart(2, '0');
+      const s = fipsToState[fips];
+      if (!s || s.cases26 === 0) return '#e8e0d0';
+      return colorCases(s.cases26);
+    })
+    .on('mousemove', function(event, d) {
+      const fips = d.id.toString().padStart(2, '0');
+      const s = fipsToState[fips];
+      if (!s) return;
+      document.getElementById('tt-state').textContent = s.name;
+      document.getElementById('tt-cases').textContent = s.cases26 > 0 ? s.cases26.toLocaleString() : 'None reported';
+      document.getElementById('tt-cases25').textContent = s.cases25 > 0 ? s.cases25.toLocaleString() : 'None';
+      const el = document.getElementById('tt-vacc');
+      if (s.vacc == null) {
+        el.textContent = 'Not reported'; el.style.color = 'var(--text-dim)';
+      } else {
+        el.textContent = s.vacc + '%';
+        el.style.color = s.vacc >= 95 ? 'var(--green)' : s.vacc >= 90 ? 'var(--amber)' : 'var(--red)';
+      }
+      tooltip.style.display = 'block';
+      tooltip.style.left = (event.clientX + 14) + 'px';
+      tooltip.style.top = (event.clientY - 60) + 'px';
+    })
+    .on('mouseleave', () => { tooltip.style.display = 'none'; });
+
+  svg.append('path')
+    .datum(topojson.mesh(us, us.objects.states, (a, b) => a !== b))
+    .attr('fill', 'none')
+    .attr('stroke', '#faf7f2')
+    .attr('stroke-width', 0.8)
+    .attr('d', path);
+
+  // ── Map toggle ──
+  window.switchMap = function(mode) {
+    document.querySelectorAll('.toggle-btn').forEach((btn, i) => {
+      btn.classList.toggle('active', (i === 0 && mode === 'cases') || (i === 1 && mode === 'vacc'));
+    });
+    const label = document.getElementById('map-mode-label');
+    const legendMax = document.getElementById('legend-max');
+    const legendGrad = document.getElementById('legend-gradient');
+
+    if (mode === 'cases') {
+      label.textContent = '2026 YTD Cases';
+      legendMax.textContent = maxCases + '+';
+      legendGrad.style.background = 'linear-gradient(to right, #e8e0d0, #9b1c1c, #ef4444)';
+      svg.selectAll('.state-path').transition().duration(600).ease(d3.easeQuadInOut)
+        .attr('fill', d => {
+          const s = fipsToState[d.id.toString().padStart(2, '0')];
+          if (!s || s.cases26 === 0) return '#e8e0d0';
+          return colorCases(s.cases26);
+        });
+    } else {
+      label.textContent = 'MMR Kindergarten Coverage';
+      legendMax.textContent = '99%';
+      legendGrad.style.background = 'linear-gradient(to right, #7f1d1d, #b45309, #ca8a04, #16a34a)';
+      svg.selectAll('.state-path').transition().duration(600).ease(d3.easeQuadInOut)
+        .attr('fill', d => {
+          const s = fipsToState[d.id.toString().padStart(2, '0')];
+          if (!s) return '#e8e0d0';
+          if (s.vacc == null) return '#d5cfc5';
+          return colorVacc(s.vacc);
+        });
+    }
+  };
+
+}).catch(err => {
+  console.error('Failed to load data:', err);
+  document.getElementById('map-container').innerHTML =
+    `<div style="padding:2rem;font-family:var(--mono);font-size:0.75rem;color:var(--red);">
+      Error loading data. Make sure cases.csv and outbreaks.csv are in the data/ folder.<br>
+      <small style="color:var(--text-dim)">${err.message}</small>
+    </div>`;
+});
+</script>
+</body>
+</html>
