@@ -10,7 +10,7 @@ A public health dashboard tracking confirmed measles cases and MMR vaccination c
 
 Measles cases in the United States reached a 34-year high in 2025, and 2026 is on track to be worse. Despite this, publicly available data is scattered across multiple CDC pages and difficult for non-specialists to interpret quickly.
 
-This dashboard brings together two key datasets — confirmed case counts by state and kindergarten MMR vaccination coverage — to tell a clearer story: where measles is spreading, where it is clustered in outbreaks, and how vaccination gaps are driving transmission.
+This dashboard brings together two key datasets (confirmed case counts by state and kindergarten MMR vaccination coverage) to tell a clearer story: where measles is spreading, where it is clustered in outbreaks, and how vaccination gaps are driving transmission.
 
 ---
 
