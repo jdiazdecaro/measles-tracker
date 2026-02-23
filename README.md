@@ -1,5 +1,7 @@
 # US Measles Outbreak & MMR Vaccination Coverage Tracker
 
+Status: Prototype — not actively maintained. Data reflects CDC figures as of February 19, 2026. Built as a demonstration of AI-assisted epidemiologic tooling.
+
 A public health dashboard tracking confirmed measles cases and MMR vaccination coverage across the United States. Built to make CDC surveillance data more accessible and actionable for the public, researchers, and health communicators.
 
 🔗 **[View the live dashboard](https://jdiazdecaro.github.io/measles-tracker/)** 
