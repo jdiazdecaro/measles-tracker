@@ -2,7 +2,7 @@
 
 A public health dashboard tracking confirmed measles cases and MMR vaccination coverage across the United States. Built to make CDC surveillance data more accessible and actionable for the public, researchers, and health communicators.
 
-🔗 **[View the live dashboard](https://jdiazdecaro.github.io/measles-tracker/)** ← replace with your actual URL
+🔗 **[View the live dashboard](https://jdiazdecaro.github.io/measles-tracker/)** 
 
 ---
 
